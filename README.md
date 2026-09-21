@@ -1,9 +1,8 @@
-# Sistema de Competições Gamificadas — Visão e Funcionalidades
+# Visão e Funcionalidades
 
 **Versão:** 0.8 (rascunho vivo)
 **Escopo desta fase:** arquitetura, funcionalidades e comportamentos.
 **Fora de escopo por ora:** escolha de stack técnico.
-**Documentos relacionados:** `02-entidades-e-relacionamentos.md`, `03-regras-de-calculo.md`
 
 ---
 
@@ -171,7 +170,7 @@ Em ordem de prioridade.
 | 0.7 | Componente curricular e lecionamento, cadastros pelo professor, bimestres com datas, regra de desempate, duas casas decimais, quatro relatórios, nome de usuário. |
 | 0.8 | Competição engloba todas as matérias do professor na sala, inscrição de professores em salas, mantenedor sem GUI, ranking individual, escopo dos relatórios, login por código de matrícula. |
 
-# Sistema de Competições Gamificadas — Entidades e Relacionamentos
+# Entidades e Relacionamentos
 
 **Versão:** 0.6 (rascunho vivo)
 **Escopo:** modelo conceitual de dados. Sem tipos, tabelas ou stack: isso vem depois.
@@ -452,7 +451,7 @@ Não são entidades. As fórmulas estão em `03-regras-de-calculo.md`.
 7. **Sala compartilhada:** aprovação de inscrição e quem edita sala e alunos.
 
 
-# Sistema de Competições Gamificadas — Regras de Cálculo
+# Regras de Cálculo
 
 **Versão:** 0.5 (rascunho vivo)
 **Escopo:** como as pontuações são calculadas, do lançamento aos rankings.
