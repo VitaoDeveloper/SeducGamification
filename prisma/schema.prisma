@@ -74,6 +74,7 @@ model Professor {
   id             String @id @default(uuid())
   nome           String
   codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX
+  senhaHash      String @map("senha_hash")
 
   vinculosEscola         VinculoProfessor[]
   lecionamentos          Lecionamento[]
@@ -119,6 +120,7 @@ model Aluno {
   id              String @id @default(uuid())
   nome            String
   codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX autogerado
+  senhaHash       String @map("senha_hash")
 
   matriculas                Matricula[]
   membrosGrupos             MembroGrupo[]

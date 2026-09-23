@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_PIPE } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -17,9 +19,21 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'seduc_gamification',
     }),
     ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule
+    PrismaModule,
+    AuthModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_PIPE,
+      useValue: new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    },
+  ],
 })
 export class AppModule {}
