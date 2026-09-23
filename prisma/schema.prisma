@@ -1,0 +1,372 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "generated"
+}
+
+// ------------------------------------------------------
+// ENUMS E MODELOS DE CATÁLOGO
+// ------------------------------------------------------
+
+enum TipoEscala {
+  NUMERICA
+  CPS_ETEC
+}
+
+enum SituacaoBimestre {
+  ABERTO
+  ENCERRADO
+}
+
+enum OrigemDesempate {
+  MANUAL
+  AUTOMATICO
+}
+
+model ModeloAvaliacao {
+  id         String     @id @default(uuid())
+  nome       String
+  tipoEscala TipoEscala @map("tipo_escala")
+
+  escolas      Escola[]
+  nivelEscalas NivelEscala[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("modelos_avaliacao")
+}
+
+model NivelEscala {
+  id                String @id @default(uuid())
+  modeloAvaliacaoId String @map("modelo_avaliacao_id")
+  rotulo            String // Ex: "I", "R", "B", "MB" ou "1"..."10"
+  valorNumerico     Decimal @map("valor_numerico") @db.Decimal(5, 2)
+
+  modeloAvaliacao ModeloAvaliacao @relation(fields: [modeloAvaliacaoId], references: [id], onDelete: Cascade)
+
+  @@map("niveis_escala")
+}
+
+// ------------------------------------------------------
+// ORGANIZAÇÃO E USUÁRIOS
+// ------------------------------------------------------
+
+model Escola {
+  id                String @id @default(uuid())
+  modeloAvaliacaoId String @map("modelo_avaliacao_id")
+  nome              String
+
+  modeloAvaliacao   ModeloAvaliacao    @relation(fields: [modeloAvaliacaoId], references: [id])
+  salas             Sala[]
+  vinculosProfessor VinculoProfessor[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("escolas")
+}
+
+model Professor {
+  id             String @id @default(uuid())
+  nome           String
+  codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX
+
+  vinculosEscola         VinculoProfessor[]
+  lecionamentos          Lecionamento[]
+  predefinicoesAvaliacao PredefinicaoAvaliacao[]
+  salasCriadas           Sala[]                  @relation("ProfessorCriador")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("professores")
+}
+
+model VinculoProfessor {
+  professorId String @map("professor_id")
+  escolaId    String @map("escola_id")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  escola    Escola    @relation(fields: [escolaId], references: [id], onDelete: Cascade)
+
+  @@id([professorId, escolaId])
+  @@map("vinculos_professores")
+}
+
+model Sala {
+  id                 String @id @default(uuid())
+  escolaId           String @map("escola_id")
+  professorCriadorId String @map("professor_criador_id")
+  nome               String
+  anoLetivo          Int    @map("ano_letivo")
+
+  escola           Escola         @relation(fields: [escolaId], references: [id])
+  professorCriador Professor      @relation("ProfessorCriador", fields: [professorCriadorId], references: [id])
+  matriculas       Matricula[]
+  lecionamentos    Lecionamento[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("salas")
+}
+
+model Aluno {
+  id              String @id @default(uuid())
+  nome            String
+  codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX autogerado
+
+  matriculas                Matricula[]
+  membrosGrupos             MembroGrupo[]
+  lancamentos               Lancamento[]
+  sintesesAlunoComponente   SinteseAlunoComponente[]
+  sintesesAluno             SinteseAluno[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("alunos")
+}
+
+model Matricula {
+  alunoId String @map("aluno_id")
+  salaId  String @map("sala_id")
+
+  aluno Aluno @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  sala  Sala  @relation(fields: [salaId], references: [id], onDelete: Cascade)
+
+  @@id([alunoId, salaId])
+  @@map("matriculas")
+}
+
+// ------------------------------------------------------
+// ESTRUTURA PEDAGÓGICA E COMPETIÇÃO
+// ------------------------------------------------------
+
+model Lecionamento {
+  id          String @id @default(uuid())
+  professorId String @map("professor_id")
+  salaId      String @map("sala_id")
+
+  professor             Professor              @relation(fields: [professorId], references: [id])
+  sala                  Sala                   @relation(fields: [salaId], references: [id])
+  componentesCurriculares ComponenteCurricular[]
+  competicoes           Competicao[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("lecionamentos")
+}
+
+model ComponenteCurricular {
+  id             String @id @default(uuid())
+  lecionamentoId String @map("lecionamento_id")
+  nome           String
+
+  lecionamento            Lecionamento              @relation(fields: [lecionamentoId], references: [id], onDelete: Cascade)
+  componentesPontuacao    ComponentePontuacao[]
+  sintesesAlunoComponente SinteseAlunoComponente[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("componentes_curriculares")
+}
+
+model Competicao {
+  id             String @id @default(uuid())
+  lecionamentoId String @map("lecionamento_id")
+  nome           String
+
+  lecionamento     Lecionamento      @relation(fields: [lecionamentoId], references: [id])
+  bimestres        Bimestre[]
+  gruposCompetidores GrupoCompetidor[]
+  desempates       Desempate[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("competicoes")
+}
+
+model Bimestre {
+  id           String           @id @default(uuid())
+  competicaoId String           @map("competicao_id")
+  numero       Int
+  dataInicio   DateTime         @map("data_inicio")
+  dataFim      DateTime         @map("data_fim")
+  situacao     SituacaoBimestre @default(ABERTO)
+
+  competicao              Competicao               @relation(fields: [competicaoId], references: [id], onDelete: Cascade)
+  membrosGrupos           MembroGrupo[]
+  componentesPontuacao    ComponentePontuacao[]
+  sintesesAlunoComponente SinteseAlunoComponente[]
+  sintesesAluno           SinteseAluno[]
+  sintesesGrupo           SinteseGrupo[]
+  desempates              Desempate[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bimestres")
+}
+
+// ------------------------------------------------------
+// GRUPOS E MEMBROS
+// ------------------------------------------------------
+
+model GrupoCompetidor {
+  id           String @id @default(uuid())
+  competicaoId String @map("competicao_id")
+  nome         String
+
+  competicao    Competicao     @relation(fields: [competicaoId], references: [id], onDelete: Cascade)
+  membrosGrupos MembroGrupo[]
+  sintesesGrupo SinteseGrupo[]
+  desempates    Desempate[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("grupos_competidores")
+}
+
+model MembroGrupo {
+  grupoId    String @map("grupo_id")
+  alunoId    String @map("aluno_id")
+  bimestreId String @map("bimestre_id")
+
+  grupo    GrupoCompetidor @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  aluno    Aluno           @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  bimestre Bimestre        @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+
+  @@id([grupoId, alunoId, bimestreId])
+  @@map("membros_grupos")
+}
+
+// ------------------------------------------------------
+// AVALIAÇÕES E LANÇAMENTOS DE NOTAS
+// ------------------------------------------------------
+
+model ComponentePontuacao {
+  id                     String  @id @default(uuid())
+  bimestreId             String  @map("bimestre_id")
+  componenteCurricularId String? @map("componente_curricular_id")
+  nome                   String
+  pesoPercentual         Decimal @map("peso_percentual") @db.Decimal(5, 2) // Soma 100% no bimestre/matéria
+
+  bimestre             Bimestre              @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+  componenteCurricular ComponenteCurricular? @relation(fields: [componenteCurricularId], references: [id], onDelete: Cascade)
+  lancamentos          Lancamento[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("componentes_pontuacao")
+}
+
+model Lancamento {
+  componentePontuacaoId String @map("componente_pontuacao_id")
+  alunoId               String @map("aluno_id")
+  valorNoModelo         String @map("valor_no_modelo") // Ex: "MB", "B", "8.5"
+
+  componentePontuacao ComponentePontuacao @relation(fields: [componentePontuacaoId], references: [id], onDelete: Cascade)
+  aluno               Aluno               @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@id([componentePontuacaoId, alunoId])
+  @@map("lancamentos")
+}
+
+// ------------------------------------------------------
+// SÍNTESES (CONGELADAS AO ENCERRAR O BIMESTRE)
+// ------------------------------------------------------
+
+model SinteseAlunoComponente {
+  bimestreId             String  @map("bimestre_id")
+  componenteCurricularId String  @map("componente_curricular_id")
+  alunoId               String  @map("aluno_id")
+  valor                  Decimal @db.Decimal(5, 2) // Média ponderada com até 2 casas
+
+  bimestre             Bimestre             @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+  componenteCurricular ComponenteCurricular @relation(fields: [componenteCurricularId], references: [id], onDelete: Cascade)
+  aluno                Aluno                @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@id([bimestreId, componenteCurricularId, alunoId])
+  @@map("sinteses_aluno_componente")
+}
+
+model SinteseAluno {
+  bimestreId String  @map("bimestre_id")
+  alunoId    String  @map("aluno_id")
+  valor      Decimal @db.Decimal(5, 2) // Média simples entre matérias no bimestre
+
+  bimestre Bimestre @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+  aluno    Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@id([bimestreId, alunoId])
+  @@map("sinteses_aluno")
+}
+
+model SinteseGrupo {
+  bimestreId String  @map("bimestre_id")
+  grupoId    String  @map("grupo_id")
+  valor      Decimal @db.Decimal(5, 2) // Média das sínteses dos integrantes
+
+  bimestre Bimestre        @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+  grupo    GrupoCompetidor @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+
+  @@id([bimestreId, grupoId])
+  @@map("sinteses_grupo")
+}
+
+// ------------------------------------------------------
+// DESEMPATES E PREDEFINIÇÕES
+// ------------------------------------------------------
+
+model Desempate {
+  id           String          @id @default(uuid())
+  competicaoId String          @map("competicao_id")
+  bimestreId   String?         @map("bimestre_id") // Null indica desempate do ranking anual
+  grupoId      String          @map("grupo_id")
+  posicao      Int
+  origem       OrigemDesempate
+
+  competicao Competicao      @relation(fields: [competicaoId], references: [id], onDelete: Cascade)
+  bimestre   Bimestre?       @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
+  grupo      GrupoCompetidor @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("desempates")
+}
+
+model PredefinicaoAvaliacao {
+  id          String @id @default(uuid())
+  professorId String @map("professor_id")
+  nome        String
+
+  professor   Professor                @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  componentes PredefinicaoComponente[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("predefinicoes_avaliacao")
+}
+
+model PredefinicaoComponente {
+  id             String  @id @default(uuid())
+  predefinicaoId String  @map("predefinicao_id")
+  nome           String
+  pesoPercentual Decimal @map("peso_percentual") @db.Decimal(5, 2)
+
+  predefinicao PredefinicaoAvaliacao @relation(fields: [predefinicaoId], references: [id], onDelete: Cascade)
+
+  @@map("predefinicoes_componentes")
+}
