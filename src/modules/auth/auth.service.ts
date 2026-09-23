@@ -25,25 +25,32 @@ export class AuthService {
       select: { id: true, senhaHash: true },
     });
 
-    let registro = professor;
-    let tipo: TipoUsuario = 'PROFESSOR';
-
-    if (!professor) {
-      const aluno = await this.prisma.aluno.findUnique({
-        where: { codigoMatricula: dto.codigoMatricula },
-        select: { id: true, senhaHash: true },
-      });
-      registro = aluno;
-      tipo = 'ALUNO';
+    if (
+      professor &&
+      (await compare(dto.senha, professor.senhaHash))
+    ) {
+      return this.emitirToken(professor.id, 'PROFESSOR');
     }
 
-    if (!registro || !(await compare(dto.senha, registro.senhaHash))) {
-      throw new UnauthorizedException(
-        'Código de matrícula ou senha inválidos.',
-      );
+    const aluno = await this.prisma.aluno.findUnique({
+      where: { codigoMatricula: dto.codigoMatricula },
+      select: { id: true, senhaHash: true },
+    });
+
+    if (aluno && (await compare(dto.senha, aluno.senhaHash))) {
+      return this.emitirToken(aluno.id, 'ALUNO');
     }
 
-    const payload: JwtPayload = { sub: registro.id, tipo };
+    throw new UnauthorizedException(
+      'Código de matrícula ou senha inválidos.',
+    );
+  }
+
+  private async emitirToken(
+    sub: string,
+    tipo: TipoUsuario,
+  ): Promise<{ accessToken: string }> {
+    const payload: JwtPayload = { sub, tipo };
     const accessToken = await this.jwt.signAsync(payload);
     return { accessToken };
   }

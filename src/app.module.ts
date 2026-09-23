@@ -4,8 +4,11 @@ import { APP_PIPE } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AlunosModule } from './modules/alunos/alunos.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.module.js';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
+import { SalasModule } from './modules/salas/salas.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -20,7 +23,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
-    AuthModule
+    AuthModule,
+    SalasModule,
+    LecionamentosModule,
+    AlunosModule
   ],
   controllers: [AppController],
   providers: [
