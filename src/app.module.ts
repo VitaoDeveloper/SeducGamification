@@ -6,6 +6,8 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AlunosModule } from './modules/alunos/alunos.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CompeticoesModule } from './modules/competicoes/competicoes.module.js';
+import { GruposModule } from './modules/grupos/grupos.module.js';
 import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.module.js';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
 import { SalasModule } from './modules/salas/salas.module.js';
@@ -26,7 +28,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AuthModule,
     SalasModule,
     LecionamentosModule,
-    AlunosModule
+    AlunosModule,
+    CompeticoesModule,
+    GruposModule
   ],
   controllers: [AppController],
   providers: [
