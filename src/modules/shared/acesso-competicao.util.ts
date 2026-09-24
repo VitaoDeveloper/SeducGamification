@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import type { SituacaoBimestre } from '../../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
 export async function carregarLecionamentoDoProfessor(
@@ -72,5 +73,47 @@ export async function carregarGrupoDoProfessor(
     id: grupo.id,
     competicaoId: grupo.competicaoId,
     salaId: grupo.competicao.lecionamento.salaId,
+  };
+}
+
+export async function carregarBimestreDoProfessor(
+  prisma: PrismaService,
+  professorId: string,
+  bimestreId: string,
+): Promise<{
+  id: string;
+  situacao: SituacaoBimestre;
+  competicaoId: string;
+  lecionamentoId: string;
+  salaId: string;
+}> {
+  const bimestre = await prisma.bimestre.findUnique({
+    where: { id: bimestreId },
+    select: {
+      id: true,
+      situacao: true,
+      competicaoId: true,
+      competicao: {
+        select: {
+          lecionamentoId: true,
+          lecionamento: { select: { professorId: true, salaId: true } },
+        },
+      },
+    },
+  });
+  if (!bimestre) {
+    throw new NotFoundException('Bimestre não encontrado.');
+  }
+  if (bimestre.competicao.lecionamento.professorId !== professorId) {
+    throw new ForbiddenException(
+      'Bimestre pertence a uma competição de outro professor.',
+    );
+  }
+  return {
+    id: bimestre.id,
+    situacao: bimestre.situacao,
+    competicaoId: bimestre.competicaoId,
+    lecionamentoId: bimestre.competicao.lecionamentoId,
+    salaId: bimestre.competicao.lecionamento.salaId,
   };
 }

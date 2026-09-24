@@ -7,7 +7,9 @@ import { AppService } from './app.service.js';
 import { AlunosModule } from './modules/alunos/alunos.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CompeticoesModule } from './modules/competicoes/competicoes.module.js';
+import { ComponentesPontuacaoModule } from './modules/componentes-pontuacao/componentes-pontuacao.module.js';
 import { GruposModule } from './modules/grupos/grupos.module.js';
+import { LancamentosModule } from './modules/lancamentos/lancamentos.module.js';
 import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.module.js';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
 import { SalasModule } from './modules/salas/salas.module.js';
@@ -30,7 +32,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     LecionamentosModule,
     AlunosModule,
     CompeticoesModule,
-    GruposModule
+    GruposModule,
+    ComponentesPontuacaoModule,
+    LancamentosModule
   ],
   controllers: [AppController],
   providers: [
