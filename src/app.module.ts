@@ -13,6 +13,7 @@ import { GruposModule } from './modules/grupos/grupos.module.js';
 import { LancamentosModule } from './modules/lancamentos/lancamentos.module.js';
 import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.module.js';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
+import { RankingsModule } from './modules/rankings/rankings.module.js';
 import { SalasModule } from './modules/salas/salas.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -36,7 +37,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     GruposModule,
     ComponentesPontuacaoModule,
     LancamentosModule,
-    BimestresModule
+    BimestresModule,
+    RankingsModule
   ],
   controllers: [AppController],
   providers: [

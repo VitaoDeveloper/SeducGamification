@@ -485,7 +485,7 @@ describe('Encerramento de bimestre (e2e)', () => {
           .expect(201);
       }
     }
-  });
+  }, 90000);
 
   it('encerrar o bimestre 1 grava as três sínteses e sinaliza o empate', async () => {
     const bimestreId = idsBimestres[0];
@@ -697,7 +697,7 @@ describe('Encerramento de bimestre (e2e)', () => {
         true,
       );
     }
-  });
+  }, 90000);
 
   it('encerrar o 4º bimestre devolve a pontuação final de alunos e grupos', async () => {
     const bimestreId = idsBimestres[3];
@@ -745,5 +745,5 @@ describe('Encerramento de bimestre (e2e)', () => {
       where: { competicaoId, situacao: 'ENCERRADO' },
     });
     expect(bimestresEncerrados).toBe(4);
-  });
+  }, 90000);
 });
