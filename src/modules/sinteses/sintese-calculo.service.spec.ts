@@ -96,9 +96,9 @@ describe('SinteseCalculoService', () => {
 
   describe('calcularPontuacaoFinalAluno', () => {
     it('média simples das 4 sínteses', () => {
-      expect(
-        servico.calcularPontuacaoFinalAluno([7.8, 8.6, 9.0, 8.4]),
-      ).toBe(8.45);
+      expect(servico.calcularPontuacaoFinalAluno([7.8, 8.6, 9.0, 8.4])).toBe(
+        8.45,
+      );
     });
 
     it('lista vazia produz 0', () => {
@@ -108,9 +108,57 @@ describe('SinteseCalculoService', () => {
 
   describe('calcularPontuacaoFinalGrupo', () => {
     it('soma das 4 sínteses 8.27/7.60/8.40/7.90 produz 32.17 (doc 9)', () => {
+      expect(servico.calcularPontuacaoFinalGrupo([8.27, 7.6, 8.4, 7.9])).toBe(
+        32.17,
+      );
+    });
+  });
+
+  describe('detectarEmpates', () => {
+    it('grupos com o mesmo valor viram um empate, do maior para o menor', () => {
+      const empates = servico.detectarEmpates([
+        { grupoId: 'alfa', valor: 7 },
+        { grupoId: 'beta', valor: 7 },
+        { grupoId: 'gama', valor: 8.2 },
+        { grupoId: 'delta', valor: 7 },
+      ]);
+
+      expect(empates).toEqual([
+        {
+          valor: 7,
+          grupos: [
+            { grupoId: 'alfa', valor: 7 },
+            { grupoId: 'beta', valor: 7 },
+            { grupoId: 'delta', valor: 7 },
+          ],
+        },
+      ]);
+    });
+
+    it('compara o valor já arredondado, então 7 e 7.001 empatam', () => {
+      const empates = servico.detectarEmpates([
+        { grupoId: 'alfa', valor: 7 },
+        { grupoId: 'beta', valor: 7.001 },
+      ]);
+
+      expect(empates).toHaveLength(1);
+      expect(empates[0].valor).toBe(7);
+    });
+
+    it('sem repetição de valor não há empate', () => {
       expect(
-        servico.calcularPontuacaoFinalGrupo([8.27, 7.6, 8.4, 7.9]),
-      ).toBe(32.17);
+        servico.detectarEmpates([
+          { grupoId: 'alfa', valor: 7 },
+          { grupoId: 'beta', valor: 7.5 },
+        ]),
+      ).toEqual([]);
+    });
+
+    it('lista vazia ou com menos de dois grupos não gera empate', () => {
+      expect(servico.detectarEmpates([])).toEqual([]);
+      expect(servico.detectarEmpates([{ grupoId: 'alfa', valor: 7 }])).toEqual(
+        [],
+      );
     });
   });
 });

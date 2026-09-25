@@ -9,9 +9,13 @@ import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { carregarBimestreDoProfessor } from '../shared/acesso-competicao.util.js';
 import { exigirProfessor } from '../shared/acesso-escolar.util.js';
+import {
+  CEM_PORCENTO,
+  carregarMateriasComPesos,
+  materiasFechadas,
+  selecionarMateriasPendentes,
+} from '../shared/pesos-bimestre.util.js';
 import { CriarComponentePontuacaoDto } from './dto/criar-componente-pontuacao.dto.js';
-
-const CEM_PORCENTO = 100;
 
 @Injectable()
 export class ComponentesPontuacaoService {
@@ -89,51 +93,16 @@ export class ComponentesPontuacaoService {
       bimestreId,
     );
 
-    const materias = await this.prisma.componenteCurricular.findMany({
-      where: { lecionamentoId: bimestre.lecionamentoId },
-      select: { id: true, nome: true },
-      orderBy: { nome: 'asc' },
-    });
-
-    const somas = await this.prisma.componentePontuacao.groupBy({
-      by: ['componenteCurricularId'],
-      where: { bimestreId },
-      _sum: { pesoPercentual: true },
-    });
-    const somaPorMateria = new Map(
-      somas.map((soma) => [soma.componenteCurricularId, soma._sum.pesoPercentual]),
+    const materias = await carregarMateriasComPesos(
+      this.prisma,
+      bimestreId,
+      bimestre.lecionamentoId,
     );
-
-    const componentes = await this.prisma.componentePontuacao.findMany({
-      where: { bimestreId },
-      select: {
-        id: true,
-        nome: true,
-        pesoPercentual: true,
-        componenteCurricularId: true,
-        createdAt: true,
-      },
-      orderBy: { nome: 'asc' },
-    });
-
-    const materiasResultado = materias.map((materia) => ({
-      componenteCurricularId: materia.id,
-      materiaNome: materia.nome,
-      somaPesoPercentual: Number(somaPorMateria.get(materia.id) ?? 0),
-      componentesPontuacao: componentes
-        .filter((c) => c.componenteCurricularId === materia.id)
-        .map((c) => ({
-          ...c,
-          pesoPercentual: Number(c.pesoPercentual),
-        })),
-    }));
 
     return {
       bimestreId,
-      materias: materiasResultado,
-      todasFechadas: materiasResultado.every(
-        (materia) => materia.somaPesoPercentual === CEM_PORCENTO,
-      ),
+      materias,
+      todasFechadas: materiasFechadas(materias),
     };
   }
 
@@ -142,16 +111,7 @@ export class ComponentesPontuacaoService {
     bimestreId: string,
   ) {
     const { materias } = await this.listar(user, bimestreId);
-    const materiasPendentes = materias
-      .filter((materia) => materia.somaPesoPercentual !== CEM_PORCENTO)
-      .map((materia) => ({
-        componenteCurricularId: materia.componenteCurricularId,
-        materiaNome: materia.materiaNome,
-        somaPesoPercentual: materia.somaPesoPercentual,
-        faltaParaFechar: Number(
-          (CEM_PORCENTO - materia.somaPesoPercentual).toFixed(2),
-        ),
-      }));
+    const materiasPendentes = selecionarMateriasPendentes(materias);
 
     return {
       fechado: materiasPendentes.length === 0,
