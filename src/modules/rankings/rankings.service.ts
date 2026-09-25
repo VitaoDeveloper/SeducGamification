@@ -49,11 +49,15 @@ export class RankingsService {
       competicaoId,
     );
 
-    const [bimestresEncerrados, totalBimestres] = await Promise.all([
+    const [bimestresEncerrados, totalBimestres, desempates] = await Promise.all([
       this.prisma.bimestre.count({
         where: { competicaoId, situacao: SituacaoBimestre.ENCERRADO },
       }),
       this.prisma.bimestre.count({ where: { competicaoId } }),
+      this.prisma.desempate.findMany({
+        where: { competicaoId, bimestreId: bimestreId ?? null },
+        select: { grupoId: true, posicao: true },
+      }),
     ]);
 
     if (bimestreId) {
@@ -70,7 +74,10 @@ export class RankingsService {
         bimestreId,
         bimestresEncerrados,
         completo: bimestresEncerrados === totalBimestres,
-        itens: this.montarItensGrupos(sinteses),
+        itens: this.aplicarDesempates(
+          this.montarItensGrupos(sinteses),
+          desempates,
+        ),
       };
     }
 
@@ -78,6 +85,7 @@ export class RankingsService {
       competicaoId,
       bimestresEncerrados,
       totalBimestres,
+      desempates,
     );
   }
 
@@ -148,6 +156,7 @@ export class RankingsService {
     competicaoId: string,
     bimestresEncerrados: number,
     totalBimestres: number,
+    desempates: ReadonlyArray<{ grupoId: string; posicao: number }>,
   ): Promise<{
     tipo: 'anual';
     competicaoId: string;
@@ -188,8 +197,40 @@ export class RankingsService {
       bimestreId: null,
       bimestresEncerrados,
       completo: bimestresEncerrados === totalBimestres,
-      itens: this.anotarPosicoes(grupos),
+      itens: this.aplicarDesempates(this.anotarPosicoes(grupos), desempates),
     };
+  }
+
+  /**
+   * Quando um desempate manual ou automático foi gravado para o ranking
+   * consultado, a posição registrada substitui a ordem simples por valor: o
+   * grupo desempatado usa a posição gravada e deixa de sinalizar empate. A
+   * lista passa a ser ordenada por essa posição, refletindo a definição do
+   * professor.
+   */
+  private aplicarDesempates<T extends ItemRankingGrupo>(
+    itens: readonly T[],
+    desempates: ReadonlyArray<{ grupoId: string; posicao: number }>,
+  ): T[] {
+    if (desempates.length === 0) {
+      return [...itens];
+    }
+
+    const posicaoPorGrupo = new Map<string, number>(
+      desempates.map((desempate) => [desempate.grupoId, desempate.posicao]),
+    );
+
+    return [...itens]
+      .map((item) => {
+        const posicao = posicaoPorGrupo.get(item.grupoId);
+        if (posicao === undefined) {
+          return item;
+        }
+        return { ...item, posicao, empate: false };
+      })
+      .sort(
+        (a, b) => a.posicao - b.posicao || a.nome.localeCompare(b.nome),
+      );
   }
 
   private montarItensGrupos(

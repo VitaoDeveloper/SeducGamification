@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { BimestresModule } from './modules/bimestres/bimestres.module.js';
 import { CompeticoesModule } from './modules/competicoes/competicoes.module.js';
 import { ComponentesPontuacaoModule } from './modules/componentes-pontuacao/componentes-pontuacao.module.js';
+import { DesempateModule } from './modules/desempate/desempate.module.js';
 import { GruposModule } from './modules/grupos/grupos.module.js';
 import { LancamentosModule } from './modules/lancamentos/lancamentos.module.js';
 import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.module.js';
@@ -38,7 +39,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ComponentesPontuacaoModule,
     LancamentosModule,
     BimestresModule,
-    RankingsModule
+    RankingsModule,
+    DesempateModule
   ],
   controllers: [AppController],
   providers: [
