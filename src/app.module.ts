@@ -16,6 +16,7 @@ import { LecionamentosModule } from './modules/lecionamentos/lecionamentos.modul
 import { PrismaModule } from './modules/prisma/prisma.module.js';
 import { RankingsModule } from './modules/rankings/rankings.module.js';
 import { RelatoriosModule } from './modules/relatorios/relatorios.module.js';
+import { RelatoriosPdfModule } from './modules/relatorios-pdf/relatorios-pdf.module.js';
 import { SalasModule } from './modules/salas/salas.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -43,6 +44,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     RankingsModule,
     DesempateModule,
     RelatoriosModule,
+    RelatoriosPdfModule,
   ],
   controllers: [AppController],
   providers: [

@@ -8,5 +8,6 @@ import { RelatoriosService } from './relatorios.service.js';
   imports: [PrismaModule, SintesesModule],
   controllers: [RelatoriosController],
   providers: [RelatoriosService],
+  exports: [RelatoriosService],
 })
 export class RelatoriosModule {}

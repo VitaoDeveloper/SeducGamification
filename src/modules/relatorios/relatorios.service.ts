@@ -58,6 +58,47 @@ export interface GrupoComparativo {
   bimestres: Array<{ bimestreId: string; numero: number; valor: number | null }>;
 }
 
+export interface RelatorioIndividualResponse {
+  tipo: 'individual';
+  alunoId: string;
+  nome: string;
+  competicaoId: string;
+  competicaoNome: string;
+  pontuacaoFinal: number | null;
+  bimestres: BimestreIndividual[];
+}
+
+export interface RelatorioComparativoGrupoResponse {
+  tipo: 'comparativo-grupo';
+  alunoId: string;
+  nome: string;
+  competicaoId: string;
+  competicaoNome: string;
+  pontuacaoFinal: number | null;
+  bimestres: BimestreIndividualComparado[];
+}
+
+export interface RelatorioColetivoGrupoResponse {
+  tipo: 'coletivo-grupo';
+  grupoId: string;
+  nome: string;
+  competicaoId: string;
+  competicaoNome: string;
+  pontuacaoFinal: number | null;
+  bimestres: BimestreGrupo[];
+}
+
+export interface RelatorioComparativoGruposResponse {
+  tipo: 'comparativo-grupos';
+  grupoId: string;
+  nome: string;
+  competicaoId: string;
+  competicaoNome: string;
+  pontuacaoFinal: number | null;
+  bimestres: BimestreGrupo[];
+  comparativo: GrupoComparativo[];
+}
+
 interface DadosDaCompeticao {
   bimestres: Array<{ id: string; numero: number }>;
   sinteseAluno: Array<{ bimestreId: string; alunoId: string; valor: number }>;
@@ -89,7 +130,7 @@ export class RelatoriosService {
     user: UsuarioAutenticado | undefined,
     alunoId: string,
     competicaoId?: string,
-  ) {
+  ): Promise<RelatorioIndividualResponse> {
     const contexto = await this.carregarContextoAluno(
       user,
       alunoId,
@@ -116,7 +157,7 @@ export class RelatoriosService {
     user: UsuarioAutenticado | undefined,
     alunoId: string,
     competicaoId?: string,
-  ) {
+  ): Promise<RelatorioComparativoGrupoResponse> {
     const contexto = await this.carregarContextoAluno(
       user,
       alunoId,
@@ -164,7 +205,10 @@ export class RelatoriosService {
   }
 
   /** Relatório coletivo do grupo (RN28): síntese por bimestre e integrantes. */
-  async relatorioGrupo(user: UsuarioAutenticado | undefined, grupoId: string) {
+  async relatorioGrupo(
+    user: UsuarioAutenticado | undefined,
+    grupoId: string,
+  ): Promise<RelatorioColetivoGrupoResponse> {
     const acesso = await this.carregarAcessoGrupo(user, grupoId);
     const dados = await this.carregarDadosDaCompeticao(acesso.competicaoId);
 
@@ -187,7 +231,7 @@ export class RelatoriosService {
   async relatorioComparativoGrupos(
     user: UsuarioAutenticado | undefined,
     grupoId: string,
-  ) {
+  ): Promise<RelatorioComparativoGruposResponse> {
     const acesso = await this.carregarAcessoGrupo(user, grupoId);
     const dados = await this.carregarDadosDaCompeticao(acesso.competicaoId);
 

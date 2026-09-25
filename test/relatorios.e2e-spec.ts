@@ -46,6 +46,25 @@ describe('Relatórios (e2e)', () => {
     return resposta.body.accessToken as string;
   }
 
+  function baixarPdf(caminho: string, token: string) {
+    return request(app.getHttpServer())
+      .get(caminho)
+      .set('Authorization', `Bearer ${token}`)
+      .responseType('arraybuffer')
+      .expect(200);
+  }
+
+  async function esperarPdfCorreto(
+    resposta: request.Response,
+    arquivoEsperado: RegExp,
+  ): Promise<void> {
+    expect(resposta.headers['content-type']).toMatch(/application\/pdf/);
+    expect(resposta.headers['content-disposition']).toMatch(arquivoEsperado);
+    const corpo = resposta.body as Buffer;
+    expect(corpo.length).toBeGreaterThan(500);
+    expect(corpo.subarray(0, 5).toString('utf8')).toBe('%PDF-');
+  }
+
   async function criarProfessorCredenciado(
     nome: string,
     escolaId: string,
@@ -287,6 +306,25 @@ describe('Relatórios (e2e)', () => {
     // Alfa = 8.5 | Beta = 7.5
   }, 90000);
 
+  it('exporta os relatórios em PDF ainda parciais (2 de 4 bimestres encerrados)', async () => {
+    await esperarPdfCorreto(
+      await baixarPdf(`/alunos/${alunos.Ana.id}/relatorio-individual.pdf`, tokens.principal),
+      /relatorio-individual/,
+    );
+    await esperarPdfCorreto(
+      await baixarPdf(`/alunos/${alunos.Ana.id}/relatorio-comparativo-grupo.pdf`, tokens.principal),
+      /relatorio-comparativo-grupo/,
+    );
+    await esperarPdfCorreto(
+      await baixarPdf(`/grupos/${grupoAlfa}/relatorio.pdf`, tokens.principal),
+      /relatorio-grupo/,
+    );
+    await esperarPdfCorreto(
+      await baixarPdf(`/grupos/${grupoAlfa}/relatorio-comparativo.pdf`, tokens.principal),
+      /relatorio-comparativo-grupos/,
+    );
+  }, 90000);
+
   it('encerra o bimestre 3', async () => {
     await prepararBimestre(idsBimestres[2], {
       Ana: { mat: 8, por: 8 }, // 8.0
@@ -309,6 +347,20 @@ describe('Relatórios (e2e)', () => {
     // Alfa = 7.5 | Beta = 6.5
   }, 90000);
 
+  it('exporta os relatórios em PDF completos (4 de 4 bimestres encerrados)', async () => {
+    for (const caminho of [
+      `/alunos/${alunos.Ana.id}/relatorio-individual.pdf`,
+      `/alunos/${alunos.Ana.id}/relatorio-comparativo-grupo.pdf`,
+      `/grupos/${grupoAlfa}/relatorio.pdf`,
+      `/grupos/${grupoAlfa}/relatorio-comparativo.pdf`,
+    ]) {
+      const resposta = await baixarPdf(caminho, tokens.principal);
+      expect(resposta.headers['content-type']).toMatch(/application\/pdf/);
+      const corpo = resposta.body as Buffer;
+      expect(corpo.subarray(0, 5).toString('utf8')).toBe('%PDF-');
+    }
+  }, 90000);
+
   it('aluno fora do grupo recebe 403 nos relatórios coletivos de outro grupo', async () => {
     const tokenZeca = await login(alunos.Zeca.codigo, alunos.Zeca.codigo);
 
@@ -320,6 +372,14 @@ describe('Relatórios (e2e)', () => {
       .get(`/grupos/${grupoAlfa}/relatorio-comparativo`)
       .set('Authorization', `Bearer ${tokenZeca}`)
       .expect(403);
+    await request(app.getHttpServer())
+      .get(`/grupos/${grupoAlfa}/relatorio.pdf`)
+      .set('Authorization', `Bearer ${tokenZeca}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/grupos/${grupoAlfa}/relatorio-comparativo.pdf`)
+      .set('Authorization', `Bearer ${tokenZeca}`)
+      .expect(403);
   });
 
   it('professor de outra competição recebe 403 nos relatórios', async () => {
@@ -329,6 +389,14 @@ describe('Relatórios (e2e)', () => {
       .expect(403);
     await request(app.getHttpServer())
       .get(`/alunos/${alunos.Ana.id}/relatorio-individual?competicaoId=${competicaoId}`)
+      .set('Authorization', `Bearer ${tokens.fora}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/alunos/${alunos.Ana.id}/relatorio-individual.pdf`)
+      .set('Authorization', `Bearer ${tokens.fora}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/grupos/${grupoAlfa}/relatorio.pdf`)
       .set('Authorization', `Bearer ${tokens.fora}`)
       .expect(403);
   });
