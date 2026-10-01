@@ -27,7 +27,7 @@ enum OrigemDesempate {
 }
 
 model ModeloAvaliacao {
-  id         String     @id @default(uuid())
+  id         String     @id @default(dbgenerated("gen_random_uuid()"))
   nome       String
   tipoEscala TipoEscala @map("tipo_escala")
 
@@ -41,8 +41,8 @@ model ModeloAvaliacao {
 }
 
 model NivelEscala {
-  id                String @id @default(uuid())
-  modeloAvaliacaoId String @map("modelo_avaliacao_id")
+  id                String  @id @default(dbgenerated("gen_random_uuid()"))
+  modeloAvaliacaoId String  @map("modelo_avaliacao_id")
   rotulo            String // Ex: "I", "R", "B", "MB" ou "1"..."10"
   valorNumerico     Decimal @map("valor_numerico") @db.Decimal(5, 2)
 
@@ -56,7 +56,7 @@ model NivelEscala {
 // ------------------------------------------------------
 
 model Escola {
-  id                String @id @default(uuid())
+  id                String @id @default(dbgenerated("gen_random_uuid()"))
   modeloAvaliacaoId String @map("modelo_avaliacao_id")
   nome              String
 
@@ -71,10 +71,10 @@ model Escola {
 }
 
 model Professor {
-  id             String @id @default(uuid())
-  nome           String
+  id              String @id @default(dbgenerated("gen_random_uuid()"))
+  nome            String
   codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX
-  senhaHash      String @map("senha_hash")
+  senhaHash       String @map("senha_hash")
 
   vinculosEscola         VinculoProfessor[]
   lecionamentos          Lecionamento[]
@@ -99,7 +99,7 @@ model VinculoProfessor {
 }
 
 model Sala {
-  id                 String @id @default(uuid())
+  id                 String @id @default(dbgenerated("gen_random_uuid()"))
   escolaId           String @map("escola_id")
   professorCriadorId String @map("professor_criador_id")
   nome               String
@@ -117,16 +117,16 @@ model Sala {
 }
 
 model Aluno {
-  id              String @id @default(uuid())
+  id              String @id @default(dbgenerated("gen_random_uuid()"))
   nome            String
   codigoMatricula String @unique @map("codigo_matricula") // Padrão 26XXX autogerado
   senhaHash       String @map("senha_hash")
 
-  matriculas                Matricula[]
-  membrosGrupos             MembroGrupo[]
-  lancamentos               Lancamento[]
-  sintesesAlunoComponente   SinteseAlunoComponente[]
-  sintesesAluno             SinteseAluno[]
+  matriculas              Matricula[]
+  membrosGrupos           MembroGrupo[]
+  lancamentos             Lancamento[]
+  sintesesAlunoComponente SinteseAlunoComponente[]
+  sintesesAluno           SinteseAluno[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -150,14 +150,14 @@ model Matricula {
 // ------------------------------------------------------
 
 model Lecionamento {
-  id          String @id @default(uuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   professorId String @map("professor_id")
   salaId      String @map("sala_id")
 
-  professor             Professor              @relation(fields: [professorId], references: [id])
-  sala                  Sala                   @relation(fields: [salaId], references: [id])
+  professor               Professor              @relation(fields: [professorId], references: [id])
+  sala                    Sala                   @relation(fields: [salaId], references: [id])
   componentesCurriculares ComponenteCurricular[]
-  competicoes           Competicao[]
+  competicoes             Competicao[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -166,11 +166,11 @@ model Lecionamento {
 }
 
 model ComponenteCurricular {
-  id             String @id @default(uuid())
+  id             String @id @default(dbgenerated("gen_random_uuid()"))
   lecionamentoId String @map("lecionamento_id")
   nome           String
 
-  lecionamento            Lecionamento              @relation(fields: [lecionamentoId], references: [id], onDelete: Cascade)
+  lecionamento            Lecionamento             @relation(fields: [lecionamentoId], references: [id], onDelete: Cascade)
   componentesPontuacao    ComponentePontuacao[]
   sintesesAlunoComponente SinteseAlunoComponente[]
 
@@ -181,14 +181,14 @@ model ComponenteCurricular {
 }
 
 model Competicao {
-  id             String @id @default(uuid())
+  id             String @id @default(dbgenerated("gen_random_uuid()"))
   lecionamentoId String @map("lecionamento_id")
   nome           String
 
-  lecionamento     Lecionamento      @relation(fields: [lecionamentoId], references: [id])
-  bimestres        Bimestre[]
+  lecionamento       Lecionamento      @relation(fields: [lecionamentoId], references: [id])
+  bimestres          Bimestre[]
   gruposCompetidores GrupoCompetidor[]
-  desempates       Desempate[]
+  desempates         Desempate[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -197,7 +197,7 @@ model Competicao {
 }
 
 model Bimestre {
-  id           String           @id @default(uuid())
+  id           String           @id @default(dbgenerated("gen_random_uuid()"))
   competicaoId String           @map("competicao_id")
   numero       Int
   dataInicio   DateTime         @map("data_inicio")
@@ -223,7 +223,7 @@ model Bimestre {
 // ------------------------------------------------------
 
 model GrupoCompetidor {
-  id           String @id @default(uuid())
+  id           String @id @default(dbgenerated("gen_random_uuid()"))
   competicaoId String @map("competicao_id")
   nome         String
 
@@ -256,7 +256,7 @@ model MembroGrupo {
 // ------------------------------------------------------
 
 model ComponentePontuacao {
-  id                     String  @id @default(uuid())
+  id                     String  @id @default(dbgenerated("gen_random_uuid()"))
   bimestreId             String  @map("bimestre_id")
   componenteCurricularId String? @map("componente_curricular_id")
   nome                   String
@@ -291,7 +291,7 @@ model Lancamento {
 model SinteseAlunoComponente {
   bimestreId             String  @map("bimestre_id")
   componenteCurricularId String  @map("componente_curricular_id")
-  alunoId               String  @map("aluno_id")
+  alunoId                String  @map("aluno_id")
   valor                  Decimal @db.Decimal(5, 2) // Média ponderada com até 2 casas
 
   bimestre             Bimestre             @relation(fields: [bimestreId], references: [id], onDelete: Cascade)
@@ -331,7 +331,7 @@ model SinteseGrupo {
 // ------------------------------------------------------
 
 model Desempate {
-  id           String          @id @default(uuid())
+  id           String          @id @default(dbgenerated("gen_random_uuid()"))
   competicaoId String          @map("competicao_id")
   bimestreId   String?         @map("bimestre_id") // Null indica desempate do ranking anual
   grupoId      String          @map("grupo_id")
@@ -349,7 +349,7 @@ model Desempate {
 }
 
 model PredefinicaoAvaliacao {
-  id          String @id @default(uuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   professorId String @map("professor_id")
   nome        String
 
@@ -363,7 +363,7 @@ model PredefinicaoAvaliacao {
 }
 
 model PredefinicaoComponente {
-  id             String  @id @default(uuid())
+  id             String  @id @default(dbgenerated("gen_random_uuid()"))
   predefinicaoId String  @map("predefinicao_id")
   nome           String
   pesoPercentual Decimal @map("peso_percentual") @db.Decimal(5, 2)
