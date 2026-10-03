@@ -60,16 +60,28 @@ describe('Salas, Alunos e Lecionamentos (e2e)', () => {
 
     const escolaExemplo = await prisma.escola.findFirstOrThrow({
       where: { nome: 'Escola Estadual de Exemplo' },
-      select: { id: true, modeloAvaliacaoId: true },
+      select: { id: true },
+    });
+
+    /*
+     * A escola de fora recebe o modelo **numérico**, o oposto do seed: é ela que
+     * prova que `GET /salas` diz qual é o modelo de cada escola, em vez de a
+     * interface ter de adivinhar um só para todas. A escola de exemplo é o CPS
+     * ETEC do seed, então a mesma resposta traz os dois modelos.
+     */
+    const modeloNumerico = await prisma.modeloAvaliacao.findFirstOrThrow({
+      where: { tipoEscala: 'NUMERICA' },
+      select: { id: true },
     });
 
     const escolaFora = await prisma.escola.create({
       data: {
         nome: 'Escola de Fora (E2E)',
-        modeloAvaliacaoId: escolaExemplo.modeloAvaliacaoId,
+        modeloAvaliacaoId: modeloNumerico.id,
       },
     });
     idsEscolas.push(escolaFora.id);
+    escolaForaId = escolaFora.id;
 
     const professorSeed = await prisma.professor.findFirstOrThrow({
       where: { nome: 'Professor Exemplo' },
@@ -112,6 +124,7 @@ describe('Salas, Alunos e Lecionamentos (e2e)', () => {
 
   const tokens = { principal: '', segundo: '', fora: '' };
   let escolaExemploId: string;
+  let escolaForaId: string;
   let salaId: string;
   const nomesAlunos = ['Ana Beatriz', 'Bruno César', 'Camila Duarte'];
 
@@ -134,6 +147,12 @@ describe('Salas, Alunos e Lecionamentos (e2e)', () => {
       escolaId: escolaExemploId,
     });
     expect(resposta.body).toHaveProperty('id');
+    // A escola viaja com o modelo: é dele que a tela tira o formato do campo de
+    // nota, e a sala recién-criada é a primeira a responder por ele.
+    expect(resposta.body.escola.modeloAvaliacao.tipoEscala).toBe('CPS_ETEC');
+    expect(resposta.body.escola.modeloAvaliacao.nivelEscalas.length).toBeGreaterThan(
+      0,
+    );
     salaId = resposta.body.id;
     idsSalas.push(salaId);
   });
@@ -181,6 +200,47 @@ describe('Salas, Alunos e Lecionamentos (e2e)', () => {
       .set('Authorization', `Bearer ${tokens.segundo}`)
       .send({ componentes: ['Gestão de Projetos'] })
       .expect(201);
+  });
+
+  /*
+   * O modelo de avaliação viaja com cada escola, e o da numérica vem sem níveis:
+   * a escala é a de 1 a 10, digitada pelo professor, e um rótulo nela seria um
+   * valor que a conta não sabe converter. É o que impede a interface de mostrar
+   * o seletor de conceitos numa escola que só aceita nota.
+   */
+  it('leva o modelo de cada escola, e o numérico sem níveis', async () => {
+    const salaNumerica = await request(app.getHttpServer())
+      .post('/salas')
+      .set('Authorization', `Bearer ${tokens.fora}`)
+      .send({ nome: '2º DS Numérica', anoLetivo: ANO, escolaId: escolaForaId })
+      .expect(201);
+    idsSalas.push(salaNumerica.body.id);
+
+    const lista = await request(app.getHttpServer())
+      .get('/salas')
+      .set('Authorization', `Bearer ${tokens.fora}`)
+      .expect(200);
+
+    expect(lista.body).toHaveLength(1);
+    expect(lista.body[0].escola).toMatchObject({
+      nome: 'Escola de Fora (E2E)',
+      modeloAvaliacao: { tipoEscala: 'NUMERICA', nivelEscalas: [] },
+    });
+
+    const listaDoSeed = await request(app.getHttpServer())
+      .get('/salas')
+      .set('Authorization', `Bearer ${tokens.segundo}`)
+      .expect(200);
+
+    const salaDoSeed = listaDoSeed.body.find(
+      (sala: { id: string }) => sala.id === salaId,
+    );
+    expect(salaDoSeed.escola.modeloAvaliacao.tipoEscala).toBe('CPS_ETEC');
+    expect(
+      salaDoSeed.escola.modeloAvaliacao.nivelEscalas.map(
+        (nivel: { rotulo: string }) => nivel.rotulo,
+      ),
+    ).toEqual(expect.arrayContaining(['I', 'R', 'B', 'MB']));
   });
 
   it('professor de escola não vinculada recebe 403 ao se inscrever', async () => {

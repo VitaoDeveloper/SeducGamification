@@ -404,9 +404,37 @@ Validações: `nome` obrigatório, `anoLetivo` entre 2000 e 2100, `escolaId` UUI
 
 ```json
 [
-  { "id": "...", "nome": "2º DS", "anoLetivo": 2026, "escolaId": "...", "professorCriadorId": "...", "escola": { "id": "...", "nome": "Escola Estadual de Exemplo" } }
+  {
+    "id": "...",
+    "nome": "2º DS",
+    "anoLetivo": 2026,
+    "escolaId": "...",
+    "professorCriadorId": "...",
+    "escola": {
+      "id": "...",
+      "nome": "Escola Estadual de Exemplo",
+      "modeloAvaliacao": {
+        "tipoEscala": "CPS_ETEC",
+        "nivelEscalas": [
+          { "rotulo": "I", "valorNumerico": 3 },
+          { "rotulo": "R", "valorNumerico": 5 },
+          { "rotulo": "B", "valorNumerico": 8 },
+          { "rotulo": "MB", "valorNumerico": 10 }
+        ]
+      }
+    }
+  }
 ]
 ```
+
+A escola viaja com o **modelo de avaliação** porque é dele que o cliente tira o formato do
+campo de nota — escala numérica de 1 a 10 ou os rótulos do CPS da ETEC. Sem ele no corpo,
+o cliente só pode chutar um modelo para todas as escolas, e o chute erra a turma inteira:
+`POST .../lancamentos` valida contra o modelo do banco, então uma escola numérica receberia
+um seletor de conceitos e a gravação seria recusada com `400`. No modelo **numérico**,
+`nivelEscalas` vem vazio — a escala é digitada, não escolhida —, e `valorNumerico` é
+serializado como número, e não como a string em que o `Decimal` do Prisma viraria. A ordem
+dos níveis não é garantida: quem exibe os rótulos ordena pelo `valorNumerico`.
 
 ### 11.3 Lecionamentos (inscrição do professor na sala)
 

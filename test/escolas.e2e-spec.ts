@@ -25,6 +25,8 @@ describe('Escolas (e2e)', () => {
   const tokens = { uma: '', varias: '', nenhuma: '', aluno: '' };
   let escolaAId: string;
   let escolaBId: string;
+  /** Os níveis do CPS ETEC do seed, na ordem da escala. */
+  let nivelEscalasCps: { rotulo: string; valorNumerico: number }[] = [];
 
   async function login(codigo: string, senha: string): Promise<string> {
     const resposta = await request(app.getHttpServer())
@@ -64,15 +66,42 @@ describe('Escolas (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    const modelo = await prisma.modeloAvaliacao.findFirstOrThrow();
+    /*
+     * Cada escola recebe um modelo diferente de propósito: a rota existe para
+     * distinguir a escola numérica da conceitual, e um teste com as duas no mesmo
+     * modelo passaria mesmo com o campo errado no lugar. Os níveis do CPS ETEC
+     * vêm do seed da API, ordenados pelo valor porque a tabela não tem coluna de
+     * ordem — é o `valorNumerico` que diz em que ponto da escala cada rótulo está.
+     */
+    const modeloCps = await prisma.modeloAvaliacao.findFirstOrThrow({
+      where: { tipoEscala: 'CPS_ETEC' },
+    });
+    const modeloNumerico = await prisma.modeloAvaliacao.findFirstOrThrow({
+      where: { tipoEscala: 'NUMERICA' },
+    });
 
-    for (const nome of [NOME_ESCOLA_A, NOME_ESCOLA_B]) {
+    for (const [nome, modelo] of [
+      [NOME_ESCOLA_A, modeloCps],
+      [NOME_ESCOLA_B, modeloNumerico],
+    ] as const) {
       const escola = await prisma.escola.create({
         data: { nome, modeloAvaliacaoId: modelo.id },
       });
       idsEscolas.push(escola.id);
     }
     [escolaAId, escolaBId] = idsEscolas;
+
+    nivelEscalasCps = (
+      await prisma.nivelEscala.findMany({
+        where: { modeloAvaliacaoId: modeloCps.id },
+        select: { rotulo: true, valorNumerico: true },
+      })
+    )
+      .map((nivel) => ({
+        rotulo: nivel.rotulo,
+        valorNumerico: Number(nivel.valorNumerico),
+      }))
+      .sort((a, b) => a.valorNumerico - b.valorNumerico);
 
     tokens.uma = (
       await criarProfessorCredenciado('Professor Uma Escola (E2E)', [escolaAId])
@@ -131,13 +160,56 @@ describe('Escolas (e2e)', () => {
     await app.close();
   });
 
-  it('lista a escola de quem tem um vínculo só', async () => {
+  it('lista a escola de quem tem um vínculo só, com o modelo de avaliação', async () => {
     const resposta = await request(app.getHttpServer())
       .get('/escolas')
       .set('Authorization', `Bearer ${tokens.uma}`)
       .expect(200);
 
-    expect(resposta.body).toEqual([{ id: escolaAId, nome: NOME_ESCOLA_A }]);
+    expect(resposta.body).toEqual([
+      {
+        id: escolaAId,
+        nome: NOME_ESCOLA_A,
+        modeloAvaliacao: { tipoEscala: 'CPS_ETEC', nivelEscalas: nivelEscalasCps },
+      },
+    ]);
+  });
+
+  /*
+   * O teste que fecha a divergência de modelo: as duas escolas do mesmo professor
+   * saem com modelos diferentes, e cada um com a escala que lhe corresponde. Sem
+   * `modeloAvaliacao` na resposta, a interface não tem como saber que a escola B
+   * é numérica — e lançaria conceitos onde a API exige nota de 1 a 10.
+   */
+  it('distingue a escola numérica da conceitual pelo modelo devolvido', async () => {
+    const resposta = await request(app.getHttpServer())
+      .get('/escolas')
+      .set('Authorization', `Bearer ${tokens.varias}`)
+      .expect(200);
+
+    expect(resposta.body).toEqual([
+      {
+        id: escolaAId,
+        nome: NOME_ESCOLA_A,
+        modeloAvaliacao: { tipoEscala: 'CPS_ETEC', nivelEscalas: nivelEscalasCps },
+      },
+      {
+        id: escolaBId,
+        nome: NOME_ESCOLA_B,
+        modeloAvaliacao: { tipoEscala: 'NUMERICA', nivelEscalas: [] },
+      },
+    ]);
+  });
+
+  it('devolve `valorNumerico` como número, e não como string do Decimal', async () => {
+    const resposta = await request(app.getHttpServer())
+      .get('/escolas')
+      .set('Authorization', `Bearer ${tokens.uma}`)
+      .expect(200);
+
+    for (const nivel of resposta.body[0].modeloAvaliacao.nivelEscalas) {
+      expect(typeof nivel.valorNumerico).toBe('number');
+    }
   });
 
   it('lista as duas escolas de quem tem dois vínculos, sem repetir', async () => {
@@ -146,9 +218,9 @@ describe('Escolas (e2e)', () => {
       .set('Authorization', `Bearer ${tokens.varias}`)
       .expect(200);
 
-    expect(resposta.body).toEqual([
-      { id: escolaAId, nome: NOME_ESCOLA_A },
-      { id: escolaBId, nome: NOME_ESCOLA_B },
+    expect(resposta.body.map((e: { id: string }) => e.id)).toEqual([
+      escolaAId,
+      escolaBId,
     ]);
     // A chave composta do vínculo já impede a duplicata; o teste fixa o
     // contrato para o dia em que a consulta for trocada por uma sobre `salas`.
@@ -179,7 +251,13 @@ describe('Escolas (e2e)', () => {
       .get('/escolas')
       .set('Authorization', `Bearer ${semSalas}`)
       .expect(200);
-    expect(escolas.body).toEqual([{ id: escolaBId, nome: NOME_ESCOLA_B }]);
+    expect(escolas.body).toEqual([
+      {
+        id: escolaBId,
+        nome: NOME_ESCOLA_B,
+        modeloAvaliacao: { tipoEscala: 'NUMERICA', nivelEscalas: [] },
+      },
+    ]);
   });
 
   it('aluno autenticado não lista escolas (403)', async () => {

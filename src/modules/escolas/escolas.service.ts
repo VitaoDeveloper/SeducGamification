@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { exigirProfessor } from '../shared/acesso-escolar.util.js';
+import {
+  ESCOLA_COM_MODELO_DE_AVALIACAO,
+  comModeloDeAvaliacao,
+} from '../shared/escola-com-modelo.util.js';
 
 /**
  * Escolas às quais o professor da sessão está vinculado.
@@ -26,9 +30,9 @@ export class EscolasService {
     const professor = exigirProfessor(user);
     const vinculos = await this.prisma.vinculoProfessor.findMany({
       where: { professorId: professor.id },
-      select: { escola: { select: { id: true, nome: true } } },
+      select: { escola: { select: ESCOLA_COM_MODELO_DE_AVALIACAO } },
       orderBy: { escola: { nome: 'asc' } },
     });
-    return vinculos.map((vinculo) => vinculo.escola);
+    return vinculos.map((vinculo) => comModeloDeAvaliacao(vinculo.escola));
   }
 }

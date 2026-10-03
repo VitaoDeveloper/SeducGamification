@@ -5,6 +5,10 @@ import {
   exigirProfessor,
   exigirVinculoProfessorEscola,
 } from '../shared/acesso-escolar.util.js';
+import {
+  ESCOLA_COM_MODELO_DE_AVALIACAO,
+  comModeloDeAvaliacao,
+} from '../shared/escola-com-modelo.util.js';
 import { CriarSalaDto } from './dto/criar-sala.dto.js';
 
 @Injectable()
@@ -18,15 +22,16 @@ export class SalasService {
       professor.id,
       dto.escolaId,
     );
-    return this.prisma.sala.create({
+    const sala = await this.prisma.sala.create({
       data: {
         nome: dto.nome,
         anoLetivo: dto.anoLetivo,
         escolaId: dto.escolaId,
         professorCriadorId: professor.id,
       },
-      include: { escola: { select: { id: true, nome: true } } },
+      include: { escola: { select: ESCOLA_COM_MODELO_DE_AVALIACAO } },
     });
+    return { ...sala, escola: comModeloDeAvaliacao(sala.escola) };
   }
 
   async listarDoProfessor(user: UsuarioAutenticado | undefined) {
@@ -36,10 +41,14 @@ export class SalasService {
       select: { escolaId: true },
     });
     const escolasIds = [...new Set(vinculos.map((v) => v.escolaId))];
-    return this.prisma.sala.findMany({
+    const salas = await this.prisma.sala.findMany({
       where: { escolaId: { in: escolasIds } },
-      include: { escola: { select: { id: true, nome: true } } },
+      include: { escola: { select: ESCOLA_COM_MODELO_DE_AVALIACAO } },
       orderBy: [{ anoLetivo: 'desc' }, { nome: 'asc' }],
     });
+    return salas.map((sala) => ({
+      ...sala,
+      escola: comModeloDeAvaliacao(sala.escola),
+    }));
   }
 }
