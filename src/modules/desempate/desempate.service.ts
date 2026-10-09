@@ -275,6 +275,34 @@ export class DesempateService {
     };
   }
 
+  /**
+   * Revoga uma decisão de desempate (manual ou automática) de um escopo,
+   * devolvendo-o ao estado pendente. Idempotente: sem desempates registrados,
+   * apenas retorna `removidos: 0`.
+   */
+  async revogar(
+    user: UsuarioAutenticado | undefined,
+    competicaoId: string,
+    bimestreId?: string,
+  ): Promise<{ bimestreId: string | null; removidos: number }> {
+    const professor = exigirProfessor(user);
+    await carregarCompeticaoDoProfessor(
+      this.prisma,
+      professor.id,
+      competicaoId,
+    );
+
+    const escopo = bimestreId ?? null;
+    if (escopo) {
+      await this.exigirBimestreDaCompeticao(competicaoId, escopo);
+    }
+
+    const { count } = await this.prisma.desempate.deleteMany({
+      where: { competicaoId, bimestreId: escopo },
+    });
+    return { bimestreId: escopo, removidos: count };
+  }
+
   private async carregarEmpatesDoEscopo(
     competicaoId: string,
     bimestreId: string | null,

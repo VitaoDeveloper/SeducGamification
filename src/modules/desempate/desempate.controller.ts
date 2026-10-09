@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -48,5 +49,15 @@ export class DesempateController {
       competicaoId,
       bimestreId,
     );
+  }
+
+  @Delete(':id/desempate')
+  revogar(
+    @CurrentUser() user: UsuarioAutenticado | undefined,
+    @Param('id', ParseUUIDPipe) competicaoId: string,
+    @Query('bimestreId', new ParseUUIDPipe({ optional: true }))
+    bimestreId: string | undefined,
+  ) {
+    return this.desempateService.revogar(user, competicaoId, bimestreId);
   }
 }
