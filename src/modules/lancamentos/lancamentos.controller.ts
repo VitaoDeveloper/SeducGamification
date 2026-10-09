@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -50,6 +53,20 @@ export class LancamentosController {
       user,
       componentePontuacaoId,
       dto,
+    );
+  }
+
+  @Delete(':id/lancamentos/:alunoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  excluir(
+    @CurrentUser() user: UsuarioAutenticado | undefined,
+    @Param('id', ParseUUIDPipe) componentePontuacaoId: string,
+    @Param('alunoId', ParseUUIDPipe) alunoId: string,
+  ) {
+    return this.lancamentosService.excluir(
+      user,
+      componentePontuacaoId,
+      alunoId,
     );
   }
 }

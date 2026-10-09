@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { ModeloAvaliacao } from '../../generated/prisma/client.js';
+import { Prisma, type ModeloAvaliacao } from '../../generated/prisma/client.js';
 import {
   SituacaoBimestre,
   TipoEscala,
@@ -158,6 +158,37 @@ export class LancamentosService {
     });
 
     return resultados;
+  }
+
+  async excluir(
+    user: UsuarioAutenticado | undefined,
+    componentePontuacaoId: string,
+    alunoId: string,
+  ): Promise<void> {
+    const professor = exigirProfessor(user);
+    const componente = await this.carregarComponenteDoProfessor(
+      professor.id,
+      componentePontuacaoId,
+    );
+    this.exigirBimestreAberto(componente);
+
+    try {
+      await this.prisma.lancamento.delete({
+        where: {
+          componentePontuacaoId_alunoId: { componentePontuacaoId, alunoId },
+        },
+      });
+    } catch (erro) {
+      if (
+        erro instanceof Prisma.PrismaClientKnownRequestError &&
+        erro.code === 'P2025'
+      ) {
+        throw new NotFoundException(
+          'Este aluno não tem nota lançada neste componente.',
+        );
+      }
+      throw erro;
+    }
   }
 
   async listar(
