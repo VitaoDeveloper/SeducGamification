@@ -13,6 +13,7 @@ import {
 } from '../shared/acesso-competicao.util.js';
 import { exigirProfessor } from '../shared/acesso-escolar.util.js';
 import { AdicionarMembroDto } from './dto/adicionar-membro.dto.js';
+import { AtualizarGrupoDto } from './dto/atualizar-grupo.dto.js';
 import { CriarGrupoDto } from './dto/criar-grupo.dto.js';
 
 @Injectable()
@@ -33,6 +34,41 @@ export class GruposService {
     return this.prisma.grupoCompetidor.create({
       data: { competicaoId, nome: dto.nome },
     });
+  }
+
+  async atualizarGrupo(
+    user: UsuarioAutenticado | undefined,
+    grupoId: string,
+    dto: AtualizarGrupoDto,
+  ) {
+    const professor = exigirProfessor(user);
+    await carregarGrupoDoProfessor(this.prisma, professor.id, grupoId);
+    return this.prisma.grupoCompetidor.update({
+      where: { id: grupoId },
+      data: { nome: dto.nome },
+    });
+  }
+
+  async excluirGrupo(
+    user: UsuarioAutenticado | undefined,
+    grupoId: string,
+  ): Promise<void> {
+    const professor = exigirProfessor(user);
+    await carregarGrupoDoProfessor(this.prisma, professor.id, grupoId);
+
+    const membros = await this.prisma.membroGrupo.count({
+      where: { grupoId },
+    });
+    if (membros > 0) {
+      throw new ConflictException(
+        'Grupo possui membros em algum bimestre. Remova os membros um a um antes de excluir.',
+      );
+    }
+
+    // Sem membros, o grupo também não deve ter Desempate apontando para ele
+    // (o desempate só registra a posição de um grupo com pontuação no ranking,
+    // que exige integrantes) — a exclusão em cascata é segura.
+    await this.prisma.grupoCompetidor.delete({ where: { id: grupoId } });
   }
 
   async adicionarMembro(

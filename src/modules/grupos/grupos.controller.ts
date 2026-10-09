@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -15,6 +16,7 @@ import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { AdicionarMembroDto } from './dto/adicionar-membro.dto.js';
+import { AtualizarGrupoDto } from './dto/atualizar-grupo.dto.js';
 import { CriarGrupoDto } from './dto/criar-grupo.dto.js';
 import { GruposService } from './grupos.service.js';
 
@@ -39,6 +41,24 @@ export class GruposController {
     @Body() dto: AdicionarMembroDto,
   ) {
     return this.gruposService.adicionarMembro(user, grupoId, dto);
+  }
+
+  @Patch('grupos/:id')
+  atualizarGrupo(
+    @CurrentUser() user: UsuarioAutenticado | undefined,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AtualizarGrupoDto,
+  ) {
+    return this.gruposService.atualizarGrupo(user, id, dto);
+  }
+
+  @Delete('grupos/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  excluirGrupo(
+    @CurrentUser() user: UsuarioAutenticado | undefined,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.gruposService.excluirGrupo(user, id);
   }
 
   @Delete('grupos/:id/membros/:alunoId')
