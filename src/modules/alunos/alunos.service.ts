@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { hash } from 'bcryptjs';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -7,6 +11,7 @@ import {
   exigirProfessor,
 } from '../shared/acesso-escolar.util.js';
 import { gerarCodigoMatricula } from '../shared/codigo-matricula.util.js';
+import { AtualizarAlunoDto } from './dto/atualizar-aluno.dto.js';
 import { CriarAlunoDto } from './dto/criar-aluno.dto.js';
 
 const ROUNDS_HASH_SENHA = 10;
@@ -77,5 +82,65 @@ export class AlunosService {
       },
       orderBy: { nome: 'asc' },
     });
+  }
+
+  async atualizar(
+    user: UsuarioAutenticado | undefined,
+    alunoId: string,
+    dto: AtualizarAlunoDto,
+  ) {
+    const professor = exigirProfessor(user);
+    await this.carregarAlunoDaEscolaDoProfessor(professor.id, alunoId);
+
+    return this.prisma.aluno.update({
+      where: { id: alunoId },
+      data: { nome: dto.nome },
+    });
+  }
+
+  async excluir(
+    user: UsuarioAutenticado | undefined,
+    alunoId: string,
+  ): Promise<void> {
+    const professor = exigirProfessor(user);
+    await this.carregarAlunoDaEscolaDoProfessor(professor.id, alunoId);
+
+    const lancamentos = await this.prisma.lancamento.count({
+      where: { alunoId },
+    });
+    if (lancamentos > 0) {
+      throw new ConflictException(
+        'Aluno já possui lançamentos registrados e não pode ser excluído.',
+      );
+    }
+
+    const membros = await this.prisma.membroGrupo.count({
+      where: { alunoId },
+    });
+    if (membros > 0) {
+      throw new ConflictException(
+        'Aluno é (ou foi) membro de grupo e não pode ser excluído.',
+      );
+    }
+
+    await this.prisma.aluno.delete({ where: { id: alunoId } });
+  }
+
+  private async carregarAlunoDaEscolaDoProfessor(
+    professorId: string,
+    alunoId: string,
+  ): Promise<void> {
+    const matricula = await this.prisma.matricula.findFirst({
+      where: { alunoId },
+      select: { salaId: true },
+    });
+    if (!matricula) {
+      throw new NotFoundException('Aluno não encontrado.');
+    }
+    await carregarSalaComVinculoEscolar(
+      this.prisma,
+      professorId,
+      matricula.salaId,
+    );
   }
 }
