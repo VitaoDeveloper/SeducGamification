@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { SituacaoBimestre } from '../../generated/prisma/enums.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -6,9 +7,9 @@ import {
   carregarLecionamentoDoProfessor,
 } from '../shared/acesso-competicao.util.js';
 import { exigirProfessor } from '../shared/acesso-escolar.util.js';
+import { validarDatasBimestresConjunto } from '../shared/datas-bimestre.util.js';
+import { AtualizarCompeticaoDto } from './dto/atualizar-competicao.dto.js';
 import { CriarCompeticaoDto } from './dto/criar-competicao.dto.js';
-
-const TOTAL_BIMESTRES = 4;
 
 @Injectable()
 export class CompeticoesService {
@@ -22,7 +23,7 @@ export class CompeticoesService {
       dto.lecionamentoId,
     );
 
-    this.validarBimestres(dto);
+    validarDatasBimestresConjunto(dto.bimestres);
 
     return this.prisma.$transaction(async (tx) => {
       const competicao = await tx.competicao.create({
@@ -44,39 +45,62 @@ export class CompeticoesService {
     });
   }
 
-  private validarBimestres(dto: CriarCompeticaoDto): void {
-    const porNumero = new Map(dto.bimestres.map((b) => [b.numero, b]));
-    if (porNumero.size !== TOTAL_BIMESTRES) {
-      throw new BadRequestException('Números de bimestre duplicados.');
-    }
-    for (let numero = 1; numero <= TOTAL_BIMESTRES; numero++) {
-      if (!porNumero.has(numero)) {
-        throw new BadRequestException(
-          `Faltando definição do bimestre ${numero}.`,
-        );
-      }
+  async atualizar(
+    user: UsuarioAutenticado | undefined,
+    competicaoId: string,
+    dto: AtualizarCompeticaoDto,
+  ) {
+    const professor = exigirProfessor(user);
+    await carregarCompeticaoDoProfessor(
+      this.prisma,
+      professor.id,
+      competicaoId,
+    );
+    return this.prisma.competicao.update({
+      where: { id: competicaoId },
+      data: { nome: dto.nome },
+    });
+  }
+
+  async excluir(
+    user: UsuarioAutenticado | undefined,
+    competicaoId: string,
+  ): Promise<void> {
+    const professor = exigirProfessor(user);
+    await carregarCompeticaoDoProfessor(
+      this.prisma,
+      professor.id,
+      competicaoId,
+    );
+
+    const bimestresEncerrados = await this.prisma.bimestre.count({
+      where: { competicaoId, situacao: SituacaoBimestre.ENCERRADO },
+    });
+    if (bimestresEncerrados > 0) {
+      throw new ConflictException(
+        'Competição possui bimestres encerrados e não pode ser excluída.',
+      );
     }
 
-    const ordenados = [...dto.bimestres].sort((a, b) => a.numero - b.numero);
-    for (let i = 0; i < ordenados.length; i++) {
-      const bimestre = ordenados[i];
-      if (
-        bimestre.dataFim.getTime() <= bimestre.dataInicio.getTime()
-      ) {
-        throw new BadRequestException(
-          `Bimestre ${bimestre.numero} tem data fim anterior ou igual à data início.`,
-        );
-      }
-      if (
-        i > 0 &&
-        bimestre.dataInicio.getTime() <=
-          ordenados[i - 1].dataFim.getTime()
-      ) {
-        throw new BadRequestException(
-          'Bimestres com datas sobrepostas ou fora da ordem crescente.',
-        );
-      }
+    const componentesPontuacao = await this.prisma.componentePontuacao.count({
+      where: { bimestre: { competicaoId } },
+    });
+    if (componentesPontuacao > 0) {
+      throw new ConflictException(
+        'Competição já possui pontuação definida e não pode ser excluída.',
+      );
     }
+
+    const gruposComMembro = await this.prisma.membroGrupo.count({
+      where: { grupo: { competicaoId } },
+    });
+    if (gruposComMembro > 0) {
+      throw new ConflictException(
+        'Competição possui grupos com integrantes e não pode ser excluída.',
+      );
+    }
+
+    await this.prisma.competicao.delete({ where: { id: competicaoId } });
   }
 
   async detalhe(user: UsuarioAutenticado | undefined, competicaoId: string) {

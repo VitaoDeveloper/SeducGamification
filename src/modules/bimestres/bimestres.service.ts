@@ -3,6 +3,7 @@ import {
   ConflictException,
   HttpStatus,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { SituacaoBimestre } from '../../generated/prisma/enums.js';
@@ -10,6 +11,7 @@ import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { carregarBimestreDoProfessor } from '../shared/acesso-competicao.util.js';
 import { exigirProfessor } from '../shared/acesso-escolar.util.js';
+import { validarDatasBimestreContraVizinhos } from '../shared/datas-bimestre.util.js';
 import {
   carregarMateriasComPesos,
   montarMensagemMateriasPendentes,
@@ -17,6 +19,7 @@ import {
 } from '../shared/pesos-bimestre.util.js';
 import type { ModeloAvaliacaoParaCalculo } from '../sinteses/sintese-calculo.service.js';
 import { SinteseCalculoService } from '../sinteses/sintese-calculo.service.js';
+import { AtualizarBimestreDto } from './dto/atualizar-bimestre.dto.js';
 
 // O encerramento grava as três tabelas de síntese de uma vez. A transação
 // interativa precisa de folga para não estourar o tempo padrão do Prisma em
@@ -310,6 +313,62 @@ export class BimestresService {
         'Não é possível encerrar um bimestre já encerrado.',
       );
     }
+  }
+
+  async atualizar(
+    user: UsuarioAutenticado | undefined,
+    bimestreId: string,
+    dto: AtualizarBimestreDto,
+  ) {
+    const professor = exigirProfessor(user);
+    const bimestre = await carregarBimestreDoProfessor(
+      this.prisma,
+      professor.id,
+      bimestreId,
+    );
+    if (bimestre.situacao !== SituacaoBimestre.ABERTO) {
+      throw new ConflictException(
+        'Não é possível alterar as datas de um bimestre encerrado.',
+      );
+    }
+
+    const pontuacoes = await this.prisma.componentePontuacao.count({
+      where: { bimestreId },
+    });
+    if (pontuacoes > 0) {
+      throw new ConflictException(
+        'Não é possível alterar as datas de um bimestre que já possui pontuação definida.',
+      );
+    }
+
+    const atual = await this.prisma.bimestre.findUnique({
+      where: { id: bimestreId },
+      select: { numero: true, dataInicio: true, dataFim: true },
+    });
+    if (!atual) {
+      throw new NotFoundException('Bimestre não encontrado.');
+    }
+
+    const outrosBimestres = await this.prisma.bimestre.findMany({
+      where: { competicaoId: bimestre.competicaoId, id: { not: bimestreId } },
+      select: { numero: true, dataInicio: true, dataFim: true },
+    });
+
+    const novoDataInicio = dto.dataInicio ?? atual.dataInicio;
+    const novoDataFim = dto.dataFim ?? atual.dataFim;
+    validarDatasBimestreContraVizinhos(
+      {
+        numero: atual.numero,
+        dataInicio: novoDataInicio,
+        dataFim: novoDataFim,
+      },
+      outrosBimestres,
+    );
+
+    return this.prisma.bimestre.update({
+      where: { id: bimestreId },
+      data: { dataInicio: novoDataInicio, dataFim: novoDataFim },
+    });
   }
 
   /** Síntese por matéria e a média bimestral do aluno entre as matérias. */
